@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Finance Aggregator
 
-## Getting Started
+A fast, lightweight, **personal-use-only** finance app. Prioritizes balance
+aggregation across multiple player identities and entities (personal/business),
+with debt due dates, manually-valued points/miles, and future-dated manual
+transactions for balance projection. Runs locally; financial tokens never leave
+your machine.
 
-First, run the development server:
+Stack: Next.js 16 (App Router) · Prisma 7 + SQLite (better-sqlite3 driver adapter)
+· Plaid · TypeScript. See [the plan](../.claude) for the full design and the
+Phase B roadmap (money-movement rules engine + rule-based points earning).
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Setup
+
+1. **Configure `.env`** (already gitignored). An `APP_ENCRYPTION_KEY` was generated
+   for you. Add your Plaid keys (sandbox to start) from
+   <https://dashboard.plaid.com> → Team Settings → Keys:
+
+   ```
+   PLAID_CLIENT_ID="..."
+   PLAID_SECRET="..."
+   PLAID_ENV="sandbox"
+   ```
+
+2. **Database** (already created + seeded with players P1–P4):
+
+   ```bash
+   npx prisma migrate dev     # apply schema
+   npx prisma db seed         # seed P1–P4 (idempotent)
+   ```
+
+3. **Run:**
+
+   ```bash
+   npm run dev                # http://localhost:3000
+   ```
+
+## Using it (Plaid Sandbox)
+
+- **Accounts → Connect institution**: pick a player + entity, then in Plaid Link
+  use any sandbox institution with credentials `user_good` / `pass_good`. Multiple
+  logins per player are supported (e.g. tag one Citi login `personal`, another
+  `business`).
+- **Sync** is per-connection; failures (e.g. `ITEM_LOGIN_REQUIRED`) show inline with
+  a **Re-authenticate** action (Plaid Link update mode).
+- **Manual / future-dated entries**: positive = inflow, negative = outflow.
+  Future-dated entries only affect the projected balance until their date arrives.
+- **Points**: enter balances + a per-point valuation; cash value rolls into net worth.
+
+## Project layout
+
+```
+app/            UI pages + /app/api route handlers
+lib/            plaid client, crypto (token encryption), db (Prisma singleton),
+                sync (per-Item), networth (aggregation + projection)
+components/     client components (Plaid Link, forms, sync/delete buttons)
+prisma/         schema.prisma, seed.ts, migrations
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Notes
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Plaid does **not** expose reward points or per-transaction rail/network — points
+  are manual, and rail is set per-account (used by Phase B points-earning rules).
+- Prisma 7 guards destructive CLI commands (e.g. `migrate reset`) behind explicit
+  consent; to wipe local data, delete rows via the app or a small client script.

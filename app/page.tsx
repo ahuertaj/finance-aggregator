@@ -1,65 +1,133 @@
-import Image from "next/image";
+import Link from "next/link";
+import { prisma } from "@/lib/db";
+import { getNetWorth, getProjection } from "@/lib/networth";
+import { money, fmtDate, daysUntil } from "@/lib/format";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+async function upcomingDueDates() {
+  const liabs = await prisma.liability.findMany({
+    where: { nextPaymentDueDate: { not: null } },
+    orderBy: { capturedAt: "desc" },
+    include: { account: { include: { player: true } } },
+  });
+  const seen = new Set<string>();
+  const latest = liabs.filter((l) => {
+    if (seen.has(l.accountId)) return false;
+    seen.add(l.accountId);
+    return true;
+  });
+  latest.sort(
+    (a, b) => a.nextPaymentDueDate!.getTime() - b.nextPaymentDueDate!.getTime(),
+  );
+  return latest.slice(0, 8);
+}
+
+export default async function Dashboard() {
+  const nw = await getNetWorth();
+  const target = new Date();
+  target.setDate(target.getDate() + 30);
+  const proj = await getProjection(target);
+  const due = await upcomingDueDates();
+  const hasData = nw.byPlayer.length > 0;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="space-y-8">
+      {!hasData && (
+        <div className="rounded-lg border border-dashed p-6 text-sm">
+          No accounts yet.{" "}
+          <Link href="/accounts" className="underline">
+            Connect an institution
+          </Link>{" "}
+          or add a manual account to get started.
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      <section>
+        <div className="text-sm text-black/60 dark:text-white/60">Total net worth</div>
+        <div className="text-4xl font-semibold tabular-nums">{money(nw.total)}</div>
+        <div className="mt-1 text-sm text-black/60 dark:text-white/60">
+          Projected {fmtDate(target)}:{" "}
+          <span className="tabular-nums">{money(proj.projected)}</span>{" "}
+          <span className={proj.delta >= 0 ? "text-green-600" : "text-red-600"}>
+            ({proj.delta >= 0 ? "+" : ""}
+            {money(proj.delta)})
+          </span>
+          {nw.pointsValue > 0 && (
+            <span className="ml-3">
+              incl. points value{" "}
+              <span className="tabular-nums">{money(nw.pointsValue)}</span>
+            </span>
+          )}
         </div>
-      </main>
+      </section>
+
+      {hasData && (
+        <section className="grid gap-4 sm:grid-cols-2">
+          {nw.byPlayer.map((p) => (
+            <div key={p.playerId} className="rounded-lg border p-4">
+              <div className="flex items-baseline justify-between">
+                <div className="font-medium">
+                  {p.label} <span className="text-black/50 dark:text-white/50">— {p.name}</span>
+                </div>
+                <div className="text-lg font-semibold tabular-nums">{money(p.total)}</div>
+              </div>
+              <ul className="mt-2 space-y-1 text-sm">
+                {p.byEntity.map((e) => (
+                  <li key={e.entity} className="flex justify-between">
+                    <span className="text-black/60 dark:text-white/60">{e.entity}</span>
+                    <span className="tabular-nums">{money(e.total)}</span>
+                  </li>
+                ))}
+                {p.pointsValue > 0 && (
+                  <li className="flex justify-between">
+                    <span className="text-black/60 dark:text-white/60">points</span>
+                    <span className="tabular-nums">{money(p.pointsValue)}</span>
+                  </li>
+                )}
+              </ul>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <section>
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="font-medium">Upcoming due dates</h2>
+          <Link href="/debt" className="text-sm underline">
+            all debt
+          </Link>
+        </div>
+        {due.length === 0 ? (
+          <p className="text-sm text-black/60 dark:text-white/60">No liabilities synced yet.</p>
+        ) : (
+          <ul className="divide-y rounded-lg border">
+            {due.map((l) => {
+              const d = daysUntil(l.nextPaymentDueDate!);
+              return (
+                <li key={l.id} className="flex items-center justify-between px-4 py-2 text-sm">
+                  <span>
+                    <span className="font-medium">{l.account.name}</span>{" "}
+                    <span className="text-black/50 dark:text-white/50">
+                      ({l.account.player.label} · {l.kind})
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-3">
+                    {l.minimumPaymentAmount != null && (
+                      <span className="tabular-nums text-black/60 dark:text-white/60">
+                        min {money(Number(l.minimumPaymentAmount))}
+                      </span>
+                    )}
+                    <span className={d <= 7 ? "text-red-600" : ""}>
+                      {fmtDate(l.nextPaymentDueDate)} ({d}d)
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }

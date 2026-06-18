@@ -1,0 +1,215 @@
+// Personal Finance Aggregator — data model.
+// Shape: Player -> Item (credential set) -> Account -> append-only snapshots.
+// `entity` is a tag (personal/business/...) on Items & Accounts (no separate layer).
+// Phase-B tables (Transaction, Rule, PointsRule) exist now but are exercised later.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// A user identity. Seeded as P1–P4.
+model Player {
+  id                 Int                 @id @default(autoincrement())
+  label              String              @unique // "P1".."P4"
+  name               String
+  createdAt          DateTime            @default(now())
+  items              Item[]
+  accounts           Account[]
+  manualTransactions ManualTransaction[]
+  pointsPrograms     PointsProgram[]
+}
+
+/// One Plaid login / credential set. Multiple per player allowed, including
+/// multiple at the same institution (e.g. Citi personal + business logins).
+model Item {
+  id                 String    @id @default(cuid())
+  playerId           Int
+  player             Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  entity             String    @default("personal") // default tag inherited by accounts
+  plaidItemId        String    @unique
+  accessTokenEnc     String // AES-256-GCM encrypted Plaid access_token
+  institutionId      String?
+  institutionName    String?
+  transactionsCursor String? // for /transactions/sync (Phase B)
+  lastSyncAt         DateTime?
+  lastSyncStatus     String? // ok | error | login_required
+  lastSyncError      String?
+  createdAt          DateTime  @default(now())
+  accounts           Account[]
+}
+
+/// A financial account. Plaid-backed (itemId set) or manual (isManual = true,
+/// e.g. an unmonitored Wise balance maintained by inferred entries).
+model Account {
+  id                 String              @id @default(cuid())
+  itemId             String?
+  item               Item?               @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  playerId           Int
+  player             Player              @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  entity             String              @default("personal")
+  plaidAccountId     String?             @unique
+  name               String
+  officialName       String?
+  type               String? // depository | credit | loan | investment | ...
+  subtype            String?
+  mask               String?
+  isManual           Boolean             @default(false)
+  isMonitored        Boolean             @default(true) // false for Wise-style balances
+  isActive           Boolean             @default(true)
+  rail               String? // visa | mastercard | amex | discover | ach | wire | internal | other
+  createdAt          DateTime            @default(now())
+  balanceSnapshots   BalanceSnapshot[]
+  liabilities        Liability[]
+  manualTransactions ManualTransaction[]
+  transactions       Transaction[]
+
+  @@index([playerId, entity])
+}
+
+/// Append-only balance history: one row per account per sync.
+model BalanceSnapshot {
+  id              String   @id @default(cuid())
+  accountId       String
+  account         Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  current         Decimal?
+  available       Decimal?
+  limit           Decimal?
+  isoCurrencyCode String?
+  capturedAt      DateTime @default(now())
+
+  @@index([accountId, capturedAt])
+}
+
+/// Debt details from Plaid /liabilities/get (append-only history).
+model Liability {
+  id                   String    @id @default(cuid())
+  accountId            String
+  account              Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  kind                 String // credit | student | mortgage
+  nextPaymentDueDate   DateTime?
+  minimumPaymentAmount Decimal?
+  lastPaymentDate      DateTime?
+  lastPaymentAmount    Decimal?
+  lastStatementBalance Decimal?
+  aprPercentage        Decimal?
+  capturedAt           DateTime  @default(now())
+
+  @@index([accountId, capturedAt])
+}
+
+/// Manual entries. `date` may be in the future (balance projection).
+/// `source = inferred` rows are written by the Phase-B rules engine.
+model ManualTransaction {
+  id                      String   @id @default(cuid())
+  accountId               String?
+  account                 Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  playerId                Int
+  player                  Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  entity                  String   @default("personal")
+  amount                  Decimal // signed: positive inflow, negative outflow
+  date                    DateTime
+  description             String?
+  category                String?
+  source                  String   @default("user") // user | inferred
+  isRecurring             Boolean  @default(false)
+  recurrenceRule          String?
+  internalTransferGroupId String? // links matched transfer legs
+  createdAt               DateTime @default(now())
+
+  @@index([playerId, date])
+}
+
+/// A points / miles program (e.g. "Amex MR", "United miles").
+model PointsProgram {
+  id          String            @id @default(cuid())
+  playerId    Int
+  player      Player            @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  name        String
+  accountId   String? // optional link to the funding card account
+  createdAt   DateTime          @default(now())
+  balances    PointsBalance[]
+  valuations  PointsValuation[]
+  pointsRules PointsRule[]
+}
+
+/// Append-only points balance history. `accrued` rows come from rules (Phase B);
+/// `manual` rows are user-entered ground truth that reconciles drift.
+model PointsBalance {
+  id         String        @id @default(cuid())
+  programId  String
+  program    PointsProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  balance    Decimal
+  source     String        @default("manual") // manual | accrued
+  capturedAt DateTime      @default(now())
+
+  @@index([programId, capturedAt])
+}
+
+/// User-set valuation; latest effectiveDate wins. Cash value = balance × centsPerPoint.
+model PointsValuation {
+  id            String        @id @default(cuid())
+  programId     String
+  program       PointsProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  centsPerPoint Decimal
+  effectiveDate DateTime      @default(now())
+
+  @@index([programId, effectiveDate])
+}
+
+// ---------------------------------------------------------------------------
+// Phase-B tables — created now so the rules engine drops in without a repaint.
+// ---------------------------------------------------------------------------
+
+/// Plaid transactions (via /transactions/sync). `internalTransferGroupId` links
+/// matched transfer legs so net worth doesn't double-count.
+model Transaction {
+  id                      String   @id @default(cuid())
+  accountId               String
+  account                 Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  plaidTransactionId      String   @unique
+  amount                  Decimal
+  date                    DateTime
+  name                    String
+  merchantName            String?
+  category                String? // Plaid personal_finance_category
+  pending                 Boolean  @default(false)
+  paymentChannel          String?
+  internalTransferGroupId String?
+  excludeFromSpending     Boolean  @default(false)
+  createdAt               DateTime @default(now())
+
+  @@index([accountId, date])
+}
+
+/// Generic JSON-driven rule. matchJson = conditions, actionJson = effect.
+model Rule {
+  id         String   @id @default(cuid())
+  type       String // transfer_inference | points_earning | categorization
+  name       String?
+  priority   Int      @default(100)
+  enabled    Boolean  @default(true)
+  matchJson  String // JSON: source account/rail/entity, destination, category, amount predicates
+  actionJson String // JSON: e.g. post inferred `internal` entry to account X = amount − fee
+  createdAt  DateTime @default(now())
+}
+
+/// Points-earning rule keyed on transaction specifics (rail/category/source/dest).
+model PointsRule {
+  id                String        @id @default(cuid())
+  programId         String
+  program           PointsProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  name              String?
+  multiplier        Decimal // points earned per dollar
+  railMatch         String? // visa | amex | ... ; null = any
+  categoryMatch     String?
+  sourceMatch       String?
+  destinationMatch  String?
+  excludesTransfers Boolean       @default(true) // ACH transfers never earn
+  enabled           Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+}
