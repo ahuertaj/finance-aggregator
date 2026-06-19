@@ -7,6 +7,25 @@ type Player = { id: number; label: string; name: string };
 
 const ENTITIES = ["personal", "business"];
 
+/**
+ * Mounts the Plaid Link hook only when a token exists, so the link-initialize.js
+ * script is embedded once at most. Rendering usePlaidLink unconditionally in
+ * multiple components (or under dev Strict Mode) embeds it more than once.
+ */
+function PlaidLauncher({
+  token,
+  onSuccess,
+}: {
+  token: string;
+  onSuccess: (publicToken: string) => void;
+}) {
+  const { open, ready } = usePlaidLink({ token, onSuccess });
+  useEffect(() => {
+    if (ready) open();
+  }, [ready, open]);
+  return null;
+}
+
 /** Connect a new institution (credential set) and tag it with a player + entity. */
 export function LinkAccount({ players }: { players: Player[] }) {
   const router = useRouter();
@@ -32,12 +51,6 @@ export function LinkAccount({ players }: { players: Player[] }) {
     [playerId, entity, router],
   );
 
-  const { open, ready } = usePlaidLink({ token: linkToken ?? "", onSuccess });
-
-  useEffect(() => {
-    if (linkToken && ready) open();
-  }, [linkToken, ready, open]);
-
   const start = async () => {
     setBusy(true);
     setError(null);
@@ -54,6 +67,7 @@ export function LinkAccount({ players }: { players: Player[] }) {
 
   return (
     <div className="flex flex-wrap items-end gap-2">
+      {linkToken && <PlaidLauncher token={linkToken} onSuccess={onSuccess} />}
       <label className="text-sm">
         Player
         <select
@@ -105,11 +119,6 @@ export function Reauth({ itemId }: { itemId: string }) {
     router.refresh();
   }, [itemId, router]);
 
-  const { open, ready } = usePlaidLink({ token: linkToken ?? "", onSuccess });
-  useEffect(() => {
-    if (linkToken && ready) open();
-  }, [linkToken, ready, open]);
-
   const start = async () => {
     const res = await fetch("/api/plaid/link-token", {
       method: "POST",
@@ -121,8 +130,11 @@ export function Reauth({ itemId }: { itemId: string }) {
   };
 
   return (
-    <button onClick={start} className="rounded border px-2 py-1 text-xs">
-      Re-authenticate
-    </button>
+    <>
+      {linkToken && <PlaidLauncher token={linkToken} onSuccess={onSuccess} />}
+      <button onClick={start} className="rounded border px-2 py-1 text-xs">
+        Re-authenticate
+      </button>
+    </>
   );
 }
