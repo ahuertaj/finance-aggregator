@@ -5,13 +5,11 @@ import { useRouter } from "next/navigation";
 type Player = { id: number; label: string };
 type AcctOpt = { id: string; name: string; playerId: number };
 
-const ENTITIES = ["personal", "business"];
 const inputCls = "border rounded px-2 py-1 text-sm bg-transparent";
 
 export function ManualTxnForm({ players, accounts }: { players: Player[]; accounts: AcctOpt[] }) {
   const router = useRouter();
   const [playerId, setPlayerId] = useState(players[0]?.id ?? 0);
-  const [entity, setEntity] = useState("personal");
   const [accountId, setAccountId] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -26,7 +24,6 @@ export function ManualTxnForm({ players, accounts }: { players: Player[]; accoun
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         playerId,
-        entity,
         accountId: accountId || null,
         amount,
         date,
@@ -47,13 +44,6 @@ export function ManualTxnForm({ players, accounts }: { players: Player[]; accoun
         {players.map((p) => (
           <option key={p.id} value={p.id}>
             {p.label}
-          </option>
-        ))}
-      </select>
-      <select className={inputCls} value={entity} onChange={(e) => setEntity(e.target.value)}>
-        {ENTITIES.map((x) => (
-          <option key={x} value={x}>
-            {x}
           </option>
         ))}
       </select>
@@ -95,7 +85,6 @@ export function ManualAccountForm({ players }: { players: Player[] }) {
   const router = useRouter();
   const [playerId, setPlayerId] = useState(players[0]?.id ?? 0);
   const [name, setName] = useState("");
-  const [entity, setEntity] = useState("personal");
   const [isMonitored, setIsMonitored] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -105,7 +94,7 @@ export function ManualAccountForm({ players }: { players: Player[] }) {
     await fetch("/api/accounts", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ playerId, name, entity, isMonitored }),
+      body: JSON.stringify({ playerId, name, isMonitored }),
     });
     setBusy(false);
     setName("");
@@ -128,13 +117,6 @@ export function ManualAccountForm({ players }: { players: Player[] }) {
         onChange={(e) => setName(e.target.value)}
         required
       />
-      <select className={inputCls} value={entity} onChange={(e) => setEntity(e.target.value)}>
-        {ENTITIES.map((x) => (
-          <option key={x} value={x}>
-            {x}
-          </option>
-        ))}
-      </select>
       <label className="text-sm inline-flex items-center gap-1">
         <input type="checkbox" checked={isMonitored} onChange={(e) => setIsMonitored(e.target.checked)} />
         monitored

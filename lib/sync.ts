@@ -4,6 +4,7 @@
 import { plaid } from "./plaid";
 import { prisma } from "./db";
 import { decrypt } from "./crypto";
+import { cleanName } from "./format";
 
 export type SyncResult = {
   ok: boolean;
@@ -27,7 +28,7 @@ async function upsertAccountWithBalance(
   const acct = await prisma.account.upsert({
     where: { plaidAccountId: a.account_id },
     update: {
-      name: a.name,
+      name: cleanName(a.name),
       officialName: a.official_name ?? null,
       type: a.type ?? null,
       subtype: a.subtype ?? null,
@@ -38,7 +39,7 @@ async function upsertAccountWithBalance(
       playerId,
       entity,
       plaidAccountId: a.account_id,
-      name: a.name,
+      name: cleanName(a.name),
       officialName: a.official_name ?? null,
       type: a.type ?? null,
       subtype: a.subtype ?? null,

@@ -3,7 +3,7 @@ import { LinkAccount, Reauth } from "@/components/plaid-link";
 import { SyncButton, DeleteButton, SetActiveButton } from "@/components/actions";
 import { AccountEditor } from "@/components/account-editor";
 import { ManualAccountForm } from "@/components/manual-forms";
-import { money, fmtDate } from "@/lib/format";
+import { money, fmtDate, cleanName } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +56,7 @@ export default async function AccountsPage() {
             {items.map((it) => (
               <li key={it.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                 <div className="text-sm">
-                  <div className="font-medium">{it.institutionName ?? "Institution"}</div>
+                  <div className="font-medium">{cleanName(it.institutionName) || "Institution"}</div>
                   <div className="text-black/55 dark:text-white/55">
                     {it.player.label} · {it.entity} · {it.accounts.length} accounts ·{" "}
                     last sync {fmtDate(it.lastSyncAt)}
@@ -95,7 +95,8 @@ export default async function AccountsPage() {
                   <th className="px-4 py-2">Player</th>
                   <th className="px-4 py-2">Type</th>
                   <th className="px-4 py-2 text-right">Latest balance</th>
-                  <th className="px-4 py-2">Tags</th>
+                  <th className="px-4 py-2 text-right">Avail. credit</th>
+                  <th className="px-4 py-2">Monitored</th>
                   <th className="px-4 py-2"></th>
                 </tr>
               </thead>
@@ -105,7 +106,7 @@ export default async function AccountsPage() {
                   return (
                     <tr key={a.id} className="border-b last:border-0">
                       <td className="px-4 py-2">
-                        {a.name}
+                        {cleanName(a.name)}
                         {a.mask && <span className="text-black/40"> ····{a.mask}</span>}
                         {a.isManual && <span className="ml-1 text-xs text-black/40">(manual)</span>}
                       </td>
@@ -114,10 +115,13 @@ export default async function AccountsPage() {
                       <td className="px-4 py-2 text-right tabular-nums">
                         {snap?.current != null ? money(Number(snap.current)) : "—"}
                       </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {a.type === "credit" && snap?.available != null
+                          ? money(Number(snap.available))
+                          : "—"}
+                      </td>
                       <td className="px-4 py-2">
-                        <AccountEditor
-                          account={{ id: a.id, entity: a.entity, rail: a.rail, isMonitored: a.isMonitored }}
-                        />
+                        <AccountEditor account={{ id: a.id, isMonitored: a.isMonitored }} />
                       </td>
                       <td className="px-4 py-2 text-right">
                         {a.isManual ? (
@@ -147,7 +151,7 @@ export default async function AccountsPage() {
             {removed.map((a) => (
               <li key={a.id} className="flex items-center justify-between gap-2 px-4 py-2 text-sm">
                 <span className="text-black/55 dark:text-white/55">
-                  {a.player.label} · {a.name}
+                  {a.player.label} · {cleanName(a.name)}
                   {a.mask && <span className="text-black/40"> ····{a.mask}</span>}
                 </span>
                 <SetActiveButton

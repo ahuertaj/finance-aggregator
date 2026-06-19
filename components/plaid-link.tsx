@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 
 type Player = { id: number; label: string; name: string };
 
-const ENTITIES = ["personal", "business"];
-
 /**
  * Mounts the Plaid Link hook only when a token exists, so the link-initialize.js
  * script is embedded once at most. Rendering usePlaidLink unconditionally in
@@ -30,7 +28,6 @@ function PlaidLauncher({
 export function LinkAccount({ players }: { players: Player[] }) {
   const router = useRouter();
   const [playerId, setPlayerId] = useState<number>(players[0]?.id ?? 0);
-  const [entity, setEntity] = useState("personal");
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,14 +38,14 @@ export function LinkAccount({ players }: { players: Player[] }) {
       const res = await fetch("/api/plaid/exchange", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ publicToken, playerId, entity }),
+        body: JSON.stringify({ publicToken, playerId, entity: "personal" }),
       });
       if (!res.ok) setError("Failed to save connection");
       setLinkToken(null);
       setBusy(false);
       router.refresh();
     },
-    [playerId, entity, router],
+    [playerId, router],
   );
 
   const start = async () => {
@@ -78,20 +75,6 @@ export function LinkAccount({ players }: { players: Player[] }) {
           {players.map((p) => (
             <option key={p.id} value={p.id}>
               {p.label} — {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="text-sm">
-        Entity
-        <select
-          className="block border rounded px-2 py-1 bg-transparent"
-          value={entity}
-          onChange={(e) => setEntity(e.target.value)}
-        >
-          {ENTITIES.map((x) => (
-            <option key={x} value={x}>
-              {x}
             </option>
           ))}
         </select>

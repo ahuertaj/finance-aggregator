@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getNetWorth, getProjection } from "@/lib/networth";
-import { money, fmtDate, daysUntil } from "@/lib/format";
+import { money, fmtDate, daysUntil, cleanName } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 async function upcomingDueDates() {
   const liabs = await prisma.liability.findMany({
-    where: { nextPaymentDueDate: { not: null } },
+    where: { nextPaymentDueDate: { not: null }, account: { isActive: true } },
     orderBy: { capturedAt: "desc" },
     include: { account: { include: { player: true } } },
   });
@@ -17,10 +17,12 @@ async function upcomingDueDates() {
     seen.add(l.accountId);
     return true;
   });
-  latest.sort(
+  // Only surface dates that haven't already passed.
+  const upcoming = latest.filter((l) => daysUntil(l.nextPaymentDueDate!) >= 0);
+  upcoming.sort(
     (a, b) => a.nextPaymentDueDate!.getTime() - b.nextPaymentDueDate!.getTime(),
   );
-  return latest.slice(0, 8);
+  return upcoming.slice(0, 8);
 }
 
 export default async function Dashboard() {
@@ -53,12 +55,6 @@ export default async function Dashboard() {
             ({proj.delta >= 0 ? "+" : ""}
             {money(proj.delta)})
           </span>
-          {nw.pointsValue > 0 && (
-            <span className="ml-3">
-              incl. points value{" "}
-              <span className="tabular-nums">{money(nw.pointsValue)}</span>
-            </span>
-          )}
         </div>
       </section>
 
@@ -72,20 +68,6 @@ export default async function Dashboard() {
                 </div>
                 <div className="text-lg font-semibold tabular-nums">{money(p.total)}</div>
               </div>
-              <ul className="mt-2 space-y-1 text-sm">
-                {p.byEntity.map((e) => (
-                  <li key={e.entity} className="flex justify-between">
-                    <span className="text-black/60 dark:text-white/60">{e.entity}</span>
-                    <span className="tabular-nums">{money(e.total)}</span>
-                  </li>
-                ))}
-                {p.pointsValue > 0 && (
-                  <li className="flex justify-between">
-                    <span className="text-black/60 dark:text-white/60">points</span>
-                    <span className="tabular-nums">{money(p.pointsValue)}</span>
-                  </li>
-                )}
-              </ul>
             </div>
           ))}
         </section>
@@ -107,7 +89,7 @@ export default async function Dashboard() {
               return (
                 <li key={l.id} className="flex items-center justify-between px-4 py-2 text-sm">
                   <span>
-                    <span className="font-medium">{l.account.name}</span>{" "}
+                    <span className="font-medium">{cleanName(l.account.name)}</span>{" "}
                     <span className="text-black/50 dark:text-white/50">
                       ({l.account.player.label} · {l.kind})
                     </span>

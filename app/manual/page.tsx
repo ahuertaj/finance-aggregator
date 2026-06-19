@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { ManualTxnForm } from "@/components/manual-forms";
 import { DeleteButton } from "@/components/actions";
-import { money, fmtDate } from "@/lib/format";
+import { money, fmtDate, cleanName } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -66,10 +66,8 @@ export default async function ManualPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-2">
-                        {t.player.label} · {t.entity}
-                      </td>
-                      <td className="px-4 py-2">{t.account?.name ?? "—"}</td>
+                      <td className="px-4 py-2">{t.player.label}</td>
+                      <td className="px-4 py-2">{t.account?.name ? cleanName(t.account.name) : "—"}</td>
                       <td className="px-4 py-2">{t.description ?? "—"}</td>
                       <td className={`px-4 py-2 text-right tabular-nums ${amt < 0 ? "text-red-600" : "text-green-700"}`}>
                         {money(amt)}

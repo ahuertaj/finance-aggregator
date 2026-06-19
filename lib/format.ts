@@ -2,6 +2,11 @@ export function money(n: number, currency = "USD"): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(n);
 }
 
+/** Strip ®/™/℠ marks and collapse whitespace from an institution or account name. */
+export function cleanName(s: string | null | undefined): string {
+  return (s ?? "").replace(/[®™℠]/g, "").replace(/\s{2,}/g, " ").trim();
+}
+
 export function fmtDate(d: Date | string | null | undefined): string {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;

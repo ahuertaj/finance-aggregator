@@ -16,7 +16,6 @@ const NAV = [
   { href: "/accounts", label: "Accounts" },
   { href: "/debt", label: "Debt" },
   { href: "/manual", label: "Manual" },
-  { href: "/points", label: "Points" },
 ];
 
 export default function RootLayout({
@@ -29,7 +28,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <header className="border-b border-black/10 dark:border-white/15">
-          <nav className="mx-auto max-w-5xl flex items-center gap-1 px-4 py-3">
+          <nav className="flex items-center gap-1 px-6 py-3">
             <span className="font-semibold mr-4">💰 Aggregator</span>
             {NAV.map((n) => (
               <Link
@@ -42,7 +41,7 @@ export default function RootLayout({
             ))}
           </nav>
         </header>
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</main>
+        <main className="w-full flex-1 px-6 py-6">{children}</main>
       </body>
     </html>
   );

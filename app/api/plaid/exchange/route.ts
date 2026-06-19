@@ -4,6 +4,7 @@ import { plaid } from "@/lib/plaid";
 import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { syncItem } from "@/lib/sync";
+import { cleanName } from "@/lib/format";
 
 // Exchanges a Plaid public_token for an access_token, persists an encrypted Item
 // tagged with the player + entity, then runs an immediate first sync.
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
         institution_id: institutionId,
         country_codes: [CountryCode.Us],
       });
-      institutionName = inst.data.institution.name;
+      institutionName = cleanName(inst.data.institution.name);
     }
   } catch {
     // institution lookup is best-effort

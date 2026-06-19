@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { money, fmtDate, daysUntil } from "@/lib/format";
+import { money, fmtDate, daysUntil, cleanName } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +48,7 @@ export default async function DebtPage() {
                 const d = l.nextPaymentDueDate ? daysUntil(l.nextPaymentDueDate) : null;
                 return (
                   <tr key={l.id} className="border-b last:border-0">
-                    <td className="px-4 py-2 font-medium">{l.account.name}</td>
+                    <td className="px-4 py-2 font-medium">{cleanName(l.account.name)}</td>
                     <td className="px-4 py-2">{l.account.player.label}</td>
                     <td className="px-4 py-2">{l.kind}</td>
                     <td className="px-4 py-2 text-right tabular-nums">
