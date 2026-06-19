@@ -92,6 +92,7 @@ async function syncLiabilities(accessToken: string) {
         lastPaymentAmount: c.last_payment_amount ?? null,
         lastStatementBalance: c.last_statement_balance ?? null,
         aprPercentage: c.aprs?.[0]?.apr_percentage ?? null,
+        isOverdue: c.is_overdue ?? null,
       },
     });
   }
@@ -110,6 +111,7 @@ async function syncLiabilities(accessToken: string) {
         lastPaymentAmount: s.last_payment_amount ?? null,
         lastStatementBalance: s.last_statement_balance ?? null,
         aprPercentage: s.interest_rate_percentage ?? null,
+        isOverdue: s.is_overdue ?? null,
       },
     });
   }
@@ -128,6 +130,7 @@ async function syncLiabilities(accessToken: string) {
         lastPaymentAmount: m.last_payment_amount ?? null,
         lastStatementBalance: null,
         aprPercentage: m.interest_rate?.percentage ?? null,
+        isOverdue: m.is_overdue ?? null,
       },
     });
   }
@@ -172,4 +175,14 @@ export async function syncItem(itemId: string): Promise<SyncResult> {
     });
     return { ok: false, status, error: message };
   }
+}
+
+/** Sync every connection sequentially. Returns per-item results. */
+export async function syncAllItems(): Promise<{ itemId: string; result: SyncResult }[]> {
+  const items = await prisma.item.findMany({ select: { id: true } });
+  const out: { itemId: string; result: SyncResult }[] = [];
+  for (const { id } of items) {
+    out.push({ itemId: id, result: await syncItem(id) });
+  }
+  return out;
 }

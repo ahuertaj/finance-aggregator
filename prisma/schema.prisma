@@ -62,6 +62,7 @@ model Account {
   isManual           Boolean             @default(false)
   isMonitored        Boolean             @default(true) // false for Wise-style balances
   isActive           Boolean             @default(true)
+  hiddenFromDashboard Boolean            @default(false) // keep syncing + listed, but exclude from net worth/dashboard
   rail               String? // visa | mastercard | amex | discover | ach | wire | internal | other
   createdAt          DateTime            @default(now())
   balanceSnapshots   BalanceSnapshot[]
@@ -98,6 +99,7 @@ model Liability {
   lastPaymentAmount    Decimal?
   lastStatementBalance Decimal?
   aprPercentage        Decimal?
+  isOverdue            Boolean?
   capturedAt           DateTime  @default(now())
 
   @@index([accountId, capturedAt])

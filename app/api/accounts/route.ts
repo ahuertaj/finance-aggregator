@@ -39,6 +39,7 @@ const patchSchema = z.object({
   playerId: z.coerce.number().int().optional(),
   isMonitored: z.boolean().optional(),
   isActive: z.boolean().optional(),
+  hiddenFromDashboard: z.boolean().optional(),
 });
 
 export async function PATCH(req: NextRequest) {

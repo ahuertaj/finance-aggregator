@@ -1,13 +1,16 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { getNetWorth, getProjection } from "@/lib/networth";
+import { getNetWorth, getProjection, getCreditUtilization } from "@/lib/networth";
 import { money, fmtDate, daysUntil, accountDisplay } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 async function upcomingDueDates() {
   const liabs = await prisma.liability.findMany({
-    where: { nextPaymentDueDate: { not: null }, account: { isActive: true } },
+    where: {
+      nextPaymentDueDate: { not: null },
+      account: { isActive: true, hiddenFromDashboard: false },
+    },
     orderBy: { capturedAt: "desc" },
     include: { account: { include: { player: true } } },
   });
@@ -31,6 +34,7 @@ export default async function Dashboard() {
   target.setDate(target.getDate() + 30);
   const proj = await getProjection(target);
   const due = await upcomingDueDates();
+  const util = await getCreditUtilization();
   const hasData = nw.byPlayer.length > 0;
 
   return (
@@ -56,6 +60,18 @@ export default async function Dashboard() {
             {money(proj.delta)})
           </span>
         </div>
+        {util.cards > 0 && util.utilization != null && (
+          <div className="mt-1 text-sm text-black/60 dark:text-white/60">
+            Credit utilization{" "}
+            <span className={`tabular-nums font-medium ${util.utilization >= 0.3 ? "text-red-600" : ""}`}>
+              {Math.round(util.utilization * 100)}%
+            </span>{" "}
+            <span className="text-black/50 dark:text-white/50">
+              ({money(util.balance)} of {money(util.limit)} across {util.cards} card
+              {util.cards === 1 ? "" : "s"})
+            </span>
+          </div>
+        )}
       </section>
 
       {hasData && (

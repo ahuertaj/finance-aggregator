@@ -31,7 +31,7 @@ function num(d: unknown): number {
 
 export async function getNetWorth(asOf: Date = new Date()): Promise<NetWorth> {
   const accounts = await prisma.account.findMany({
-    where: { isActive: true },
+    where: { isActive: true, hiddenFromDashboard: false },
     include: {
       player: true,
       balanceSnapshots: { orderBy: { capturedAt: "desc" }, take: 1 },
@@ -136,4 +136,30 @@ export async function getProjection(targetDate: Date) {
     delta: projected.total - current.total,
     targetDate,
   };
+}
+
+export type CreditUtilization = {
+  balance: number;
+  limit: number;
+  cards: number; // cards with a known limit (charge cards excluded)
+  utilization: number | null; // balance / limit, or null when no limit known
+};
+
+/** Aggregate revolving-credit utilization across active, non-hidden credit cards. */
+export async function getCreditUtilization(): Promise<CreditUtilization> {
+  const accts = await prisma.account.findMany({
+    where: { isActive: true, hiddenFromDashboard: false, type: "credit" },
+    include: { balanceSnapshots: { orderBy: { capturedAt: "desc" }, take: 1 } },
+  });
+  let balance = 0;
+  let limit = 0;
+  let cards = 0;
+  for (const a of accts) {
+    const s = a.balanceSnapshots[0];
+    if (!s || s.limit == null) continue; // charge cards / no preset limit
+    balance += num(s.current);
+    limit += num(s.limit);
+    cards++;
+  }
+  return { balance, limit, cards, utilization: limit > 0 ? balance / limit : null };
 }

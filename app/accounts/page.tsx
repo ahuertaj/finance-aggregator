@@ -1,6 +1,13 @@
 import { prisma } from "@/lib/db";
 import { LinkAccount, Reauth } from "@/components/plaid-link";
-import { SyncButton, DeleteButton, SetActiveButton, RenameButton } from "@/components/actions";
+import {
+  SyncButton,
+  DeleteButton,
+  SetActiveButton,
+  RenameButton,
+  HideButton,
+  SyncAllButton,
+} from "@/components/actions";
 import { AccountEditor } from "@/components/account-editor";
 import { ManualAccountForm } from "@/components/manual-forms";
 import { money, fmtDate, cleanName, accountDisplay } from "@/lib/format";
@@ -48,7 +55,10 @@ export default async function AccountsPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 font-medium">Linked institutions</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="font-medium">Linked institutions</h2>
+          {items.length > 0 && <SyncAllButton />}
+        </div>
         {items.length === 0 ? (
           <p className="text-sm text-black/60 dark:text-white/60">None yet.</p>
         ) : (
@@ -96,6 +106,7 @@ export default async function AccountsPage() {
                   <th className="px-4 py-2">Type</th>
                   <th className="px-4 py-2 text-right">Latest balance</th>
                   <th className="px-4 py-2 text-right">Avail. credit</th>
+                  <th className="px-4 py-2 text-right">Util.</th>
                   <th className="px-4 py-2">Monitored</th>
                   <th className="px-4 py-2"></th>
                 </tr>
@@ -103,11 +114,18 @@ export default async function AccountsPage() {
               <tbody>
                 {accounts.map((a) => {
                   const snap = a.balanceSnapshots[0];
+                  const util =
+                    a.type === "credit" && snap?.limit != null && Number(snap.limit) > 0
+                      ? Number(snap.current ?? 0) / Number(snap.limit)
+                      : null;
                   return (
                     <tr key={a.id} className="border-b last:border-0">
                       <td className="px-4 py-2">
                         {accountDisplay(a)}
                         {a.isManual && <span className="ml-1 text-xs text-black/40">(manual)</span>}
+                        {a.hiddenFromDashboard && (
+                          <span className="ml-1 text-xs text-amber-700">(off dashboard)</span>
+                        )}
                         <span className="ml-2">
                           <RenameButton id={a.id} current={a.displayName ?? ""} />
                         </span>
@@ -122,20 +140,26 @@ export default async function AccountsPage() {
                           ? money(Number(snap.available))
                           : "—"}
                       </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {util != null ? `${Math.round(util * 100)}%` : "—"}
+                      </td>
                       <td className="px-4 py-2">
                         <AccountEditor account={{ id: a.id, isMonitored: a.isMonitored }} />
                       </td>
-                      <td className="px-4 py-2 text-right">
-                        {a.isManual ? (
-                          <DeleteButton endpoint="/api/accounts" id={a.id} confirm="Delete this manual account?" />
-                        ) : (
-                          <SetActiveButton
-                            id={a.id}
-                            active={false}
-                            label="Remove"
-                            confirm="Remove this account from all totals? A re-sync won't bring it back; you can restore it below."
-                          />
-                        )}
+                      <td className="px-4 py-2">
+                        <div className="flex items-center justify-end gap-3">
+                          <HideButton id={a.id} hidden={a.hiddenFromDashboard} />
+                          {a.isManual ? (
+                            <DeleteButton endpoint="/api/accounts" id={a.id} confirm="Delete this manual account?" />
+                          ) : (
+                            <SetActiveButton
+                              id={a.id}
+                              active={false}
+                              label="Remove"
+                              confirm="Remove this account from all totals? A re-sync won't bring it back; you can restore it below."
+                            />
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

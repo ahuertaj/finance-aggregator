@@ -48,7 +48,12 @@ export default async function DebtPage() {
                 const d = l.nextPaymentDueDate ? daysUntil(l.nextPaymentDueDate) : null;
                 return (
                   <tr key={l.id} className="border-b last:border-0">
-                    <td className="px-4 py-2 font-medium">{accountDisplay(l.account)}</td>
+                    <td className="px-4 py-2 font-medium">
+                      {accountDisplay(l.account)}
+                      {l.isOverdue && (
+                        <span className="ml-1 rounded bg-red-100 px-1 text-xs text-red-800">overdue</span>
+                      )}
+                    </td>
                     <td className="px-4 py-2">{l.account.player.label}</td>
                     <td className="px-4 py-2">{l.kind}</td>
                     <td className="px-4 py-2 text-right tabular-nums">

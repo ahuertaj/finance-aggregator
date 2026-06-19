@@ -125,3 +125,56 @@ export function SetActiveButton({
     </button>
   );
 }
+
+/** Toggle an account's hiddenFromDashboard flag (stays listed + syncing), then refreshes. */
+export function HideButton({ id, hidden }: { id: string; hidden: boolean }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const onClick = async () => {
+    setBusy(true);
+    await fetch("/api/accounts", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, hiddenFromDashboard: !hidden }),
+    });
+    setBusy(false);
+    router.refresh();
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={busy}
+      className="text-xs text-black/50 dark:text-white/50 hover:underline disabled:opacity-50"
+    >
+      {hidden ? "Show on dashboard" : "Hide from dashboard"}
+    </button>
+  );
+}
+
+/** Sync every connection in one click, then refreshes. */
+export function SyncAllButton() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setMsg(null);
+    const res = await fetch("/api/sync", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) setMsg(`Synced ${data.count ?? 0}; some failed`);
+    router.refresh();
+  };
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button
+        onClick={run}
+        disabled={busy}
+        className="rounded border px-2 py-1 text-xs disabled:opacity-50"
+      >
+        {busy ? "Syncing all…" : "Sync all"}
+      </button>
+      {msg && <span className="text-xs text-red-600">{msg}</span>}
+    </span>
+  );
+}
