@@ -62,3 +62,40 @@ export function DeleteButton({
     </button>
   );
 }
+
+/**
+ * Soft-remove / restore an account by PATCHing its isActive flag, then refreshes.
+ * Used instead of DELETE for Plaid accounts so a later sync doesn't re-create them.
+ */
+export function SetActiveButton({
+  id,
+  active,
+  label,
+  confirm: confirmMsg,
+  className = "text-xs text-red-600 hover:underline disabled:opacity-50",
+}: {
+  id: string;
+  active: boolean;
+  label: string;
+  confirm?: string;
+  className?: string;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const onClick = async () => {
+    if (confirmMsg && !window.confirm(confirmMsg)) return;
+    setBusy(true);
+    await fetch("/api/accounts", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, isActive: active }),
+    });
+    setBusy(false);
+    router.refresh();
+  };
+  return (
+    <button onClick={onClick} disabled={busy} className={className}>
+      {label}
+    </button>
+  );
+}

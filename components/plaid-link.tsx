@@ -133,7 +133,7 @@ export function Reauth({ itemId }: { itemId: string }) {
     <>
       {linkToken && <PlaidLauncher token={linkToken} onSuccess={onSuccess} />}
       <button onClick={start} className="rounded border px-2 py-1 text-xs">
-        Re-authenticate
+        Reconnect
       </button>
     </>
   );

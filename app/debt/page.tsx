@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DebtPage() {
   const liabs = await prisma.liability.findMany({
+    where: { account: { isActive: true } },
     orderBy: { capturedAt: "desc" },
     include: { account: { include: { player: true } } },
   });

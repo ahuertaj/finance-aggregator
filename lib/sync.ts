@@ -21,7 +21,7 @@ async function upsertAccountWithBalance(
   itemId: string,
   playerId: number,
   entity: string,
-  // deno-lint-ignore no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   a: any,
 ) {
   const acct = await prisma.account.upsert({
@@ -46,15 +46,19 @@ async function upsertAccountWithBalance(
     },
   });
 
-  await prisma.balanceSnapshot.create({
-    data: {
-      accountId: acct.id,
-      current: a.balances?.current ?? null,
-      available: a.balances?.available ?? null,
-      limit: a.balances?.limit ?? null,
-      isoCurrencyCode: a.balances?.iso_currency_code ?? null,
-    },
-  });
+  // Skip history for soft-removed accounts (the upsert leaves isActive untouched,
+  // so a removed account stays removed across syncs and accumulates no snapshots).
+  if (acct.isActive) {
+    await prisma.balanceSnapshot.create({
+      data: {
+        accountId: acct.id,
+        current: a.balances?.current ?? null,
+        available: a.balances?.available ?? null,
+        limit: a.balances?.limit ?? null,
+        isoCurrencyCode: a.balances?.iso_currency_code ?? null,
+      },
+    });
+  }
   return acct;
 }
 
@@ -73,10 +77,10 @@ async function syncLiabilities(accessToken: string) {
       ? prisma.account.findUnique({ where: { plaidAccountId } })
       : null;
 
-  // deno-lint-ignore no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const c of (liab?.credit ?? []) as any[]) {
     const acct = await byPlaidId(c.account_id);
-    if (!acct) continue;
+    if (!acct || !acct.isActive) continue;
     await prisma.liability.create({
       data: {
         accountId: acct.id,
@@ -91,10 +95,10 @@ async function syncLiabilities(accessToken: string) {
     });
   }
 
-  // deno-lint-ignore no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const s of (liab?.student ?? []) as any[]) {
     const acct = await byPlaidId(s.account_id);
-    if (!acct) continue;
+    if (!acct || !acct.isActive) continue;
     await prisma.liability.create({
       data: {
         accountId: acct.id,
@@ -109,10 +113,10 @@ async function syncLiabilities(accessToken: string) {
     });
   }
 
-  // deno-lint-ignore no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   for (const m of (liab?.mortgage ?? []) as any[]) {
     const acct = await byPlaidId(m.account_id);
-    if (!acct) continue;
+    if (!acct || !acct.isActive) continue;
     await prisma.liability.create({
       data: {
         accountId: acct.id,
@@ -151,7 +155,7 @@ export async function syncItem(itemId: string): Promise<SyncResult> {
     return { ok: true, status: "ok", accounts: accounts.length };
   } catch (err: unknown) {
     // Plaid SDK errors carry structured data on err.response.data
-    // deno-lint-ignore no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = (err as any)?.response?.data;
     const code: string | undefined = data?.error_code;
     const status =
