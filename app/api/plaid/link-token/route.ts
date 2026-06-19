@@ -29,8 +29,12 @@ export async function POST(req: NextRequest) {
   const resp = await plaid.linkTokenCreate({
     user: { client_user_id: String(playerId) },
     client_name: "Finance Aggregator",
-    products: [Products.Auth],
-    optional_products: [Products.Liabilities],
+    // Transactions is supported by depository, credit, and loan accounts, so Link
+    // surfaces all of them (Auth alone filters the picker to depository only,
+    // hiding credit cards). Liabilities (due dates/APRs) and Auth (ACH numbers,
+    // depository-only) are optional so an item without them still links.
+    products: [Products.Transactions],
+    optional_products: [Products.Liabilities, Products.Auth],
     language: "en",
     country_codes: [CountryCode.Us],
   });
