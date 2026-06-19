@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { getNetWorth, getProjection } from "@/lib/networth";
-import { money, fmtDate, daysUntil, cleanName } from "@/lib/format";
+import { money, fmtDate, daysUntil, accountDisplay } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +89,7 @@ export default async function Dashboard() {
               return (
                 <li key={l.id} className="flex items-center justify-between px-4 py-2 text-sm">
                   <span>
-                    <span className="font-medium">{cleanName(l.account.name)}</span>{" "}
+                    <span className="font-medium">{accountDisplay(l.account)}</span>{" "}
                     <span className="text-black/50 dark:text-white/50">
                       ({l.account.player.label} · {l.kind})
                     </span>

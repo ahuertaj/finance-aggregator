@@ -64,6 +64,32 @@ export function DeleteButton({
 }
 
 /**
+ * Set/clear a custom display name for an account (PATCH displayName), then refreshes.
+ * Uses a prompt — the card digits are appended automatically, so just type the name.
+ */
+export function RenameButton({ id, current }: { id: string; current: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const onClick = async () => {
+    const next = window.prompt("Custom name (leave blank to clear and use the bank's name):", current);
+    if (next === null) return; // cancelled
+    setBusy(true);
+    await fetch("/api/accounts", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id, displayName: next.trim() || null }),
+    });
+    setBusy(false);
+    router.refresh();
+  };
+  return (
+    <button onClick={onClick} disabled={busy} className="text-xs text-blue-600 hover:underline disabled:opacity-50">
+      Rename
+    </button>
+  );
+}
+
+/**
  * Soft-remove / restore an account by PATCHing its isActive flag, then refreshes.
  * Used instead of DELETE for Plaid accounts so a later sync doesn't re-create them.
  */

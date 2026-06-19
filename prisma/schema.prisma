@@ -53,7 +53,8 @@ model Account {
   player             Player              @relation(fields: [playerId], references: [id], onDelete: Cascade)
   entity             String              @default("personal")
   plaidAccountId     String?             @unique
-  name               String
+  name               String // Plaid-provided name
+  displayName        String? // user override (Plaid names from some banks, e.g. Chase, are poor)
   officialName       String?
   type               String? // depository | credit | loan | investment | ...
   subtype            String?

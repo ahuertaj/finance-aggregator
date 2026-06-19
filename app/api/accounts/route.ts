@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
 // Update tags/metadata on any account (Plaid-backed or manual).
 const patchSchema = z.object({
   id: z.string(),
+  displayName: z.string().nullable().optional(),
   entity: z.string().optional(),
   rail: z.string().nullable().optional(),
   playerId: z.coerce.number().int().optional(),

@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { accountDisplay } from "@/lib/format";
 
 type Player = { id: number; label: string };
-type AcctOpt = { id: string; name: string; playerId: number };
+type AcctOpt = { id: string; name: string; displayName?: string | null; mask?: string | null; playerId: number };
 
 const inputCls = "border rounded px-2 py-1 text-sm bg-transparent";
 
@@ -51,7 +52,7 @@ export function ManualTxnForm({ players, accounts }: { players: Player[]; accoun
         <option value="">(no account)</option>
         {playerAccounts.map((a) => (
           <option key={a.id} value={a.id}>
-            {a.name}
+            {accountDisplay(a)}
           </option>
         ))}
       </select>

@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/db";
 import { LinkAccount, Reauth } from "@/components/plaid-link";
-import { SyncButton, DeleteButton, SetActiveButton } from "@/components/actions";
+import { SyncButton, DeleteButton, SetActiveButton, RenameButton } from "@/components/actions";
 import { AccountEditor } from "@/components/account-editor";
 import { ManualAccountForm } from "@/components/manual-forms";
-import { money, fmtDate, cleanName } from "@/lib/format";
+import { money, fmtDate, cleanName, accountDisplay } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -106,9 +106,11 @@ export default async function AccountsPage() {
                   return (
                     <tr key={a.id} className="border-b last:border-0">
                       <td className="px-4 py-2">
-                        {cleanName(a.name)}
-                        {a.mask && <span className="text-black/40"> ····{a.mask}</span>}
+                        {accountDisplay(a)}
                         {a.isManual && <span className="ml-1 text-xs text-black/40">(manual)</span>}
+                        <span className="ml-2">
+                          <RenameButton id={a.id} current={a.displayName ?? ""} />
+                        </span>
                       </td>
                       <td className="px-4 py-2">{a.player.label}</td>
                       <td className="px-4 py-2">{a.subtype ?? a.type ?? "—"}</td>
@@ -151,8 +153,7 @@ export default async function AccountsPage() {
             {removed.map((a) => (
               <li key={a.id} className="flex items-center justify-between gap-2 px-4 py-2 text-sm">
                 <span className="text-black/55 dark:text-white/55">
-                  {a.player.label} · {cleanName(a.name)}
-                  {a.mask && <span className="text-black/40"> ····{a.mask}</span>}
+                  {a.player.label} · {accountDisplay(a)}
                 </span>
                 <SetActiveButton
                   id={a.id}

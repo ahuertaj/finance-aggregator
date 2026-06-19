@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { ManualTxnForm } from "@/components/manual-forms";
 import { DeleteButton } from "@/components/actions";
-import { money, fmtDate, cleanName } from "@/lib/format";
+import { money, fmtDate, accountDisplay } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -9,7 +9,7 @@ export default async function ManualPage() {
   const players = await prisma.player.findMany({ orderBy: { label: "asc" } });
   const accounts = await prisma.account.findMany({
     where: { isActive: true },
-    select: { id: true, name: true, playerId: true },
+    select: { id: true, name: true, displayName: true, mask: true, playerId: true },
     orderBy: { name: "asc" },
   });
   const txns = await prisma.manualTransaction.findMany({
@@ -67,7 +67,7 @@ export default async function ManualPage() {
                         )}
                       </td>
                       <td className="px-4 py-2">{t.player.label}</td>
-                      <td className="px-4 py-2">{t.account?.name ? cleanName(t.account.name) : "—"}</td>
+                      <td className="px-4 py-2">{t.account ? accountDisplay(t.account) : "—"}</td>
                       <td className="px-4 py-2">{t.description ?? "—"}</td>
                       <td className={`px-4 py-2 text-right tabular-nums ${amt < 0 ? "text-red-600" : "text-green-700"}`}>
                         {money(amt)}
